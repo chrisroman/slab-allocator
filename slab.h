@@ -25,8 +25,8 @@ struct Slab {
     {
         size_t alignment = sz * (MAX_SLOTS+1);
         size_t data_sz = sz * MAX_SLOTS + sizeof(void*);
-        posix_memalign((void**)&data, alignment, data_sz);
-        // data = static_cast<char*>(aligned_alloc(data_size, data_size));
+        //posix_memalign((void**)&data, alignment, data_sz);
+         data = static_cast<char*>(aligned_alloc(alignment, data_sz));
         *((Slab**)data) = this;
         //std::cout << "\t\tSlab::this = " << (void*) this << std::endl;
         //std::cout << "\t\tStart of data = " << (void*) data << std::endl;
