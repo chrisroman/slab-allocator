@@ -7,6 +7,11 @@
 
 struct SingleAllocator {
     std::deque<Slab*> free_slabs;
+        // Queue for all the free slabs available
+
+    std::mutex mux_free_slabs;
+        // Mutex for concurrent access to free_slabs
+
     size_t sz;
 
     // used for debugging
@@ -33,24 +38,40 @@ struct SingleAllocator {
         all_slabs.emplace_back(free_slabs.front());
     }
 
+    /** POTENTIAL LOCK FREE IMPLEMENTATION using a lock-free queue
+     * Slab *slab;
+     * void *p;
+     * while (p == nullptr) {
+     *     slab = free_slabs.front();
+     *     p, new_num_free = slab->insert();
+     * }
+     *
+     * if (new_num_free == 0) {
+     *   free_slabs.pop_front();
+     *      // Should bake the invariant of always having at least one slab
+     *      // with open space in the queue INTO the lock-free queue itself
+     * }
+     *
+     * return p;
+     */
 
     [[nodiscard]]
     void* allocate()
     {
+        std::lock_guard<std::mutex> lock(mux_free_slabs);
+
         Slab *slab = free_slabs.front();
         void *p = slab->insert();
-
-        std::cout << "slab->num_free = " << slab->num_free << std::endl;
 
         // Remove the top (active) slab if there's no more space
         if (slab->num_free == 0) {
             free_slabs.pop_front();
-        }
 
-        // Add a new slab if there's no more free space in the top (active) one
-        if (free_slabs.size() == 0) {
-            free_slabs.emplace_back(new Slab(sz));
-            all_slabs.emplace_back(free_slabs.front());
+            // Add a new slab if there's no more free space in the top (active) one
+            if (free_slabs.size() == 0) {
+                free_slabs.emplace_back(new Slab(sz));
+                all_slabs.emplace_back(free_slabs.front());
+            }
         }
 
         return p;
@@ -65,20 +86,22 @@ struct SingleAllocator {
         // The slot index for p
         int slot_num = (offset - sizeof(void*)) / sz;
 
-        //std::cout << "\toffset = " << offset<< std::endl;
-        //std::cout << "\tslot_num = " << slot_num << std::endl;
-
-        //std::cout << "\tStart of data: " << (void*) (((char*)p) - offset) << std::endl;
         Slab *slab = *((Slab**) (((char*)p) - offset));
-        //std::cout << "\tSlab start found at: " << (void*)slab << std::endl;
         
-        // If the slab is empty, add it to the free list since it will
-        // have a free slot once we finish 'deallocate'-ing
-        if (slab->num_free == 0) {
+        int old_num_free = slab->erase(slot_num);
+
+        /**
+         * if (old_num_free == 0) {
+         *     free_slabs.push_back(slab);
+         * }
+         */
+
+        // If the slab was full, add it to the free list since it now
+        // has a free slot
+        if (old_num_free == 0) {
+            std::lock_guard<std::mutex> lock(mux_free_slabs);
             free_slabs.push_back(slab);
         }
-
-        slab->erase(slot_num);
 
     }
 
