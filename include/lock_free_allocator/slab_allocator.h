@@ -27,7 +27,7 @@ struct SlabAllocator {
 
     SlabAllocator()
     {
-        // TODO: Review "Double Checked Locking" by Herb Stutter not have to
+        // TODO: Review "Double Checked Locking" by Herb Sutter not have to
         // do all the allocations during construction, but rather do them
         // on the first access (when it is nullptr)
         std::lock_guard<std::mutex> lock(mux_allocators);
@@ -89,6 +89,13 @@ struct SlabAllocator {
             // Find the correct allocator for this size and use it do allocation
             SingleAllocator*& salloc = allocators[exponent];
             salloc->deallocate(p);
+        }
+    }
+
+    void clear() {
+        for (int i = 0; i < MAX_ALLOCATORS; ++i) {
+            delete allocators[i];
+            allocators[i] = nullptr;
         }
     }
 

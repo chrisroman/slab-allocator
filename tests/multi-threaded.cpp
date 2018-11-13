@@ -1,4 +1,4 @@
-#include "slab_allocator.h"
+#include "../include/mutex_allocator/slab_allocator.h"
 #include <thread>
 
 using namespace std;

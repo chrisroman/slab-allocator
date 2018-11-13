@@ -1,4 +1,4 @@
-#include "slab_allocator.h"
+#include "../include/mutex_allocator/slab_allocator.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,10 +31,11 @@ void test1() {
         vec2.push_back(i);
     }
 
-    cout << std::boolalpha << (int_sa == test_sa) << endl;
-    test_sa.viewState();
-    int_sa.viewState();
+    //cout << std::boolalpha << (int_sa == test_sa) << endl;
+    //test_sa.viewState();
+    //int_sa.viewState();
 
+    test_sa.clear();
 }
 
 void test2() {
@@ -48,7 +49,7 @@ void test2() {
         std::cout << "Inserted element #" << i << std::endl;
     }
     std::cout << "Done allocating." << std::endl;
-    test_sa.viewState();
+    //test_sa.viewState();
 
     //SlabAllocator<int> int_sa;
     //deque<int, SlabAllocator<int>> lst2(int_sa);
@@ -69,7 +70,7 @@ void test3() {
             if (i % 3 == 2) {
                 lst.clear();
                 std::cout << "Cleared lst" << std::endl;
-                test_sa.viewState();
+                //test_sa.viewState();
                 continue;
             }
 
@@ -77,11 +78,11 @@ void test3() {
                 lst.push_back(Test(1, "aasdokfnaonfoneaognoeawnogboeiwbfiobe"));
                 std::cout << "Inserted element #" << j << std::endl;
             }
-            test_sa.viewState();
+            //test_sa.viewState();
         }
     }
     std::cout << "End of test3" << std::endl;
-    test_sa.viewState();
+    //test_sa.viewState();
 }
 
 int main(void)

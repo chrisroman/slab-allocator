@@ -102,7 +102,12 @@ struct SingleAllocator {
             std::lock_guard<std::mutex> lock(mux_free_slabs);
             free_slabs.push_back(slab);
         }
+    }
 
+    ~SingleAllocator() {
+        for (Slab* slab : free_slabs) {
+            delete slab;
+        }
     }
 
 };
