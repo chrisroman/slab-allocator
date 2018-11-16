@@ -1,1 +1,0 @@
-/usr/local/bin/g++-8   -std=c++17 -Wall -O2 -Wl,-search_paths_first -Wl,-headerpad_max_install_names  -lbenchmark -lpthread -latomic CMakeFiles/testMT.dir/tests/multi-threaded.cpp.o  -o testMT 

@@ -75,9 +75,11 @@ struct SingleAllocator {
     void deallocate(void* p)
     {
         // Alignment for Slab::data
-        size_t alignment = sz * (Slab::MAX_SLOTS + 1);
+        size_t alignment = sz * 2 * (Slab::MAX_SLOTS + 1);
+
         // Offset (# of bytes) into Slab::data
         size_t offset = ((long long)p) % alignment;
+
         // The slot index for p
         int slot_num = (offset - sizeof(void*)) / sz;
 

@@ -29,10 +29,15 @@ struct Slab {
     // Constructs a Slab where each slot has a size of 's'
     Slab(size_t s) : sz(s)
     {
-        size_t alignment = sz * (MAX_SLOTS+1);
+        // We need sizeof(void*) + 63*sz < alignment, since the max
+        // possible slot number is 63
+        size_t alignment = sz * 2 * (MAX_SLOTS+1);
+
         size_t data_sz = sz * MAX_SLOTS + sizeof(void*);
+
         posix_memalign((void**)&data, alignment, data_sz);
         //data = static_cast<char*>(aligned_alloc(alignment, data_sz));
+
         *((Slab**)data) = this;
     }
 
