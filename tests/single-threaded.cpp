@@ -19,37 +19,35 @@ public:
 void test1() {
     SlabAllocator<Test> test_sa;
 
-    int n = 10000;
+    int n = 10;
     vector<Test, SlabAllocator<Test>> vec(test_sa);
     for (int i = 0; i < n; ++i) {
         vec.push_back(Test(1, "aasdokfnaonfoneaognoeawnogboeiwbfiobe"));
     }
+    test_sa.viewState();
     
     SlabAllocator<int> int_sa;
     vector<int, SlabAllocator<int>> vec2(int_sa);
     for (int i = 0; i < n; ++i) {
         vec2.push_back(i);
     }
+    int_sa.viewState();
 
     //cout << std::boolalpha << (int_sa == test_sa) << endl;
-    //test_sa.viewState();
-    //int_sa.viewState();
-
-    test_sa.clear();
+    //test_sa.clear();
 }
 
 void test2() {
-    SlabAllocator<Test> test_sa;
+    SlabAllocator<uint64_t> uint64_t_sa;
 
     //int n = 770;
     int n = 10000;
-    deque<Test, SlabAllocator<Test>> lst(test_sa);
+    deque<uint64_t, SlabAllocator<uint64_t>> lst(uint64_t_sa);
     for (int i = 0; i < n; ++i) {
-        lst.push_back(Test(1, "aasdokfnaonfoneaognoeawnogboeiwbfiobe"));
-        std::cout << "Inserted element #" << i << std::endl;
+        lst.push_back(1);
     }
     std::cout << "Done allocating." << std::endl;
-    //test_sa.viewState();
+    uint64_t_sa.viewState();
 
     //SlabAllocator<int> int_sa;
     //deque<int, SlabAllocator<int>> lst2(int_sa);
@@ -88,7 +86,7 @@ void test3() {
 int main(void)
 {
     test1();
-    test2();
-    test3();
+    //test2();
+    //test3();
     return 0;
 }

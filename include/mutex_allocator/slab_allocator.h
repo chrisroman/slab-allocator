@@ -4,17 +4,19 @@
 #include "single_allocator.h"
 #include <memory>
 #include <vector>
-#include <cmath>
 #include <thread>
 
-// Allows for slots of size 2 << MAX_ALLOCATORS
-static int const MAX_ALLOCATORS = 13;
-SingleAllocator* allocators[MAX_ALLOCATORS] = {0};
-std::mutex mux_allocators;
+#include <cmath>
+#include <cstring>
 
 template <typename T>
 struct SlabAllocator {
     typedef T value_type;
+
+    // Allows for slots of size 2 << MAX_ALLOCATORS
+    static int const MAX_ALLOCATORS = 13;
+    SingleAllocator* allocators[MAX_ALLOCATORS] = {0};
+    std::mutex* mux_allocators;
 
     // used for debugging
     void viewState() {
@@ -27,29 +29,32 @@ struct SlabAllocator {
 
     SlabAllocator()
     {
-        // TODO: Review "Double Checked Locking" by Herb Stutter not have to
-        // do all the allocations during construction, but rather do them
-        // on the first access (when it is nullptr)
-        std::lock_guard<std::mutex> lock(mux_allocators);
-        if (allocators[0] == nullptr) {
-            for (int i = 0, sz = 1; i < MAX_ALLOCATORS; ++i, sz *= 2) {
-                allocators[i] = new SingleAllocator(sz);
-            }
-        }
+        std::cout << "Calling SlabAllocator()" << std::endl;
+        mux_allocators = new std::mutex();
     }
 
     ~SlabAllocator()
     {
+        std::cout << "Calling ~SlabAllocator()" << std::endl;
+        //for (int i = 0; i < MAX_ALLOCATORS; ++i) {
+        //    if (allocators[i] != nullptr)
+        //        delete allocators[i];
+        //}
+        //delete mux_allocators;
     }
 
     template <class U>
     constexpr SlabAllocator(const SlabAllocator<U>& rhs) noexcept
     {
+        std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
+        mux_allocators = rhs.mux_allocators;
+        memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);
     }
 
 
     T* allocate(std::size_t n)
     {
+        std::cout << "Trying to allocate " << n * sizeof(T) << " bytes" << std::endl;
 
         // Find the nearest power of 2 >= (n*sizeof(T))
         size_t rounded_size = 1;
@@ -59,15 +64,24 @@ struct SlabAllocator {
             ++exponent;
         }
 
+        std::cout << "Rounded up to " << rounded_size << " bytes" << std::endl;
+
         // If size of object to be allocated is larger than what we have
         // SingleAllocators for, just malloc it
         if (exponent >= MAX_ALLOCATORS) {
             return static_cast<T*>(malloc(n * sizeof(T)));
         }
 
-        // Find the correct allocator for this size and use it do allocation
-        SingleAllocator* salloc = allocators[exponent];
+        // Create a new SingleAllocator the first time this particular
+        // rounded_size is needed.
+        {
+            std::lock_guard<std::mutex> lock(*mux_allocators);
+            if (allocators[exponent] == nullptr) {
+                allocators[exponent] = new SingleAllocator(rounded_size);
+            }
+        }
 
+        SingleAllocator *salloc = allocators[exponent];
         T* p = static_cast<T*>(salloc->allocate());
 
         return p;
@@ -89,13 +103,6 @@ struct SlabAllocator {
             // Find the correct allocator for this size and use it do allocation
             SingleAllocator*& salloc = allocators[exponent];
             salloc->deallocate(p);
-        }
-    }
-
-    void clear() {
-        for (int i = 0; i < MAX_ALLOCATORS; ++i) {
-            delete allocators[i];
-            allocators[i] = nullptr;
         }
     }
 
