@@ -29,13 +29,15 @@ struct SlabAllocator {
 
     SlabAllocator()
     {
-        std::cout << "Calling SlabAllocator()" << std::endl;
+        std::cout << "Calling SlabAllocator() for " << (void*) this 
+            << ": " << __PRETTY_FUNCTION__ << std::endl;
         mux_allocators = new std::mutex();
     }
 
     ~SlabAllocator()
     {
-        std::cout << "Calling ~SlabAllocator()" << std::endl;
+        std::cout << "Calling ~SlabAllocator() on " << (void*) this
+            << ": " << __PRETTY_FUNCTION__ << std::endl;
         //for (int i = 0; i < MAX_ALLOCATORS; ++i) {
         //    if (allocators[i] != nullptr)
         //        delete allocators[i];
@@ -44,13 +46,13 @@ struct SlabAllocator {
     }
 
     template <class U>
-    constexpr SlabAllocator(const SlabAllocator<U>& rhs) noexcept
+    constexpr SlabAllocator(const SlabAllocator<U>& rhs)
     {
+        throw std::runtime_error(__PRETTY_FUNCTION__);
         std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
         mux_allocators = rhs.mux_allocators;
         memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);
     }
-
 
     T* allocate(std::size_t n)
     {

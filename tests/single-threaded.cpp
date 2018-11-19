@@ -20,18 +20,19 @@ void test1() {
     SlabAllocator<Test> test_sa;
 
     int n = 10;
-    vector<Test, SlabAllocator<Test>> vec(test_sa);
+    vector<Test, SlabAllocator<Test>> vec{test_sa};
+    //vector<Test, SlabAllocator<Test>> vec;
     for (int i = 0; i < n; ++i) {
         vec.push_back(Test(1, "aasdokfnaonfoneaognoeawnogboeiwbfiobe"));
     }
-    test_sa.viewState();
+    //vec.get_allocator().viewState();
     
-    SlabAllocator<int> int_sa;
-    vector<int, SlabAllocator<int>> vec2(int_sa);
-    for (int i = 0; i < n; ++i) {
-        vec2.push_back(i);
-    }
-    int_sa.viewState();
+    //SlabAllocator<int> int_sa;
+    //vector<int, SlabAllocator<int>> vec2(int_sa);
+    //for (int i = 0; i < n; ++i) {
+    //    vec2.push_back(i);
+    //}
+    //int_sa.viewState();
 
     //cout << std::boolalpha << (int_sa == test_sa) << endl;
     //test_sa.clear();
