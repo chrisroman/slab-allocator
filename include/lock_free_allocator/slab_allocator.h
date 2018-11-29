@@ -7,50 +7,60 @@
 #include <cmath>
 #include <thread>
 
-// Allows for slots of size 2 << MAX_ALLOCATORS
-static int const MAX_ALLOCATORS = 13;
-SingleAllocator* allocators[MAX_ALLOCATORS] = {0};
-std::mutex mux_allocators;
+struct slab_allocator_internal {
+    // Allows for slots of size 2 << MAX_ALLOCATORS
+    static int const MAX_ALLOCATORS = 40;
+    SingleAllocator* allocators[MAX_ALLOCATORS] = {0};
+    std::mutex mux_allocators;
+
+    ~slab_allocator_internal() {
+        for (int i = 0; i < MAX_ALLOCATORS; ++i) {
+            delete allocators[i];
+        }
+    }
+};
 
 template <typename T>
 struct SlabAllocator {
     typedef T value_type;
 
+    using internal = slab_allocator_internal;
+    std::shared_ptr<internal> internal_state;
+
     // used for debugging
     void viewState() {
-        for (auto& salloc : allocators) {
+        for (auto& salloc : internal_state->allocators) {
             if (salloc != nullptr) {
                 salloc->viewState();
             }
         }
     }
 
-    SlabAllocator()
+    // Default constructor
+    SlabAllocator() : internal_state(new internal())
     {
-        // TODO: Review "Double Checked Locking" by Herb Sutter not have to
-        // do all the allocations during construction, but rather do them
-        // on the first access (when it is nullptr)
-        std::lock_guard<std::mutex> lock(mux_allocators);
-        if (allocators[0] == nullptr) {
-            for (int i = 0, sz = 1; i < MAX_ALLOCATORS; ++i, sz *= 2) {
-                allocators[i] = new SingleAllocator(sz);
-            }
-        }
     }
 
+    // Destructor
     ~SlabAllocator()
     {
     }
 
-    template <class U>
-    constexpr SlabAllocator(const SlabAllocator<U>& rhs) noexcept
+    // Override implicit default copy constructor
+    constexpr SlabAllocator(const SlabAllocator& rhs) noexcept
+    : internal_state(rhs.internal_state)
     {
     }
 
+    // Template copy constructor
+    template <class U>
+    constexpr SlabAllocator(const SlabAllocator<U>& rhs) noexcept
+    : internal_state(rhs.internal_state)
+    {
+    }
 
     T* allocate(std::size_t n)
     {
-
         // Find the nearest power of 2 >= (n*sizeof(T))
         size_t rounded_size = 1;
         int exponent = 0;
@@ -59,15 +69,24 @@ struct SlabAllocator {
             ++exponent;
         }
 
-        // If size of object to be allocated is larger than what we have
-        // SingleAllocators for, just malloc it
-        if (exponent >= MAX_ALLOCATORS) {
-            return static_cast<T*>(malloc(n * sizeof(T)));
+        // Throw error if desired size to allocate is larger than supported
+        if (exponent >= internal_state->MAX_ALLOCATORS) {
+            throw std::runtime_error("Cannot allocate objects this large.");
+        }
+
+        // Create a new SingleAllocator the first time this particular
+        // rounded_size is needed.
+        {
+            if (internal_state->allocators[exponent] == nullptr) {
+                std::lock_guard<std::mutex> lock(internal_state->mux_allocators);
+                if (internal_state->allocators[exponent] == nullptr) {
+                    internal_state->allocators[exponent] = new SingleAllocator(rounded_size);
+                }
+            }
         }
 
         // Find the correct allocator for this size and use it do allocation
-        SingleAllocator* salloc = allocators[exponent];
-
+        SingleAllocator* salloc = internal_state->allocators[exponent];
         T* p = static_cast<T*>(salloc->allocate());
 
         return p;
@@ -83,34 +102,26 @@ struct SlabAllocator {
             ++exponent;
         }
 
-        if (exponent >= MAX_ALLOCATORS) {
-            free(p);
+        if (exponent >= internal_state->MAX_ALLOCATORS) {
+            return;
         } else {
             // Find the correct allocator for this size and use it do allocation
-            SingleAllocator*& salloc = allocators[exponent];
+            SingleAllocator*& salloc = internal_state->allocators[exponent];
             salloc->deallocate(p);
         }
     }
-
-    void clear() {
-        for (int i = 0; i < MAX_ALLOCATORS; ++i) {
-            delete allocators[i];
-            allocators[i] = nullptr;
-        }
-    }
-
 };
 
 template <class T, class U>
 bool operator==(const SlabAllocator<T>& lhs, const SlabAllocator<U>& rhs)
 {
-    return true;
+    return lhs.internal_state == rhs.internal_state;
 }
 
 template <class T, class U>
 bool operator!=(const SlabAllocator<T>& lhs, const SlabAllocator<U>& rhs)
 {
-    return false;
+    return !(lhs == rhs);
 }
 
 

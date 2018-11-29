@@ -10,9 +10,6 @@ struct SingleAllocator {
     LowLockQueue free_slabs;
         // Queue for all the free slabs available
 
-    std::mutex mux_free_slabs;
-        // Mutex for concurrent access to free_slabs
-
     size_t sz;
 
     // used for debugging

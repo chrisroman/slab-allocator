@@ -14,9 +14,9 @@ static void escape(void *p) {
     asm volatile("" : : "g"(p) : "memory");
 }
 
-static void clobber() {
-    asm volatile("" : : : "memory");
-}
+//static void clobber() {
+//    asm volatile("" : : : "memory");
+//}
 
 
 void slab_allocator_create(benchmark::State &state) {

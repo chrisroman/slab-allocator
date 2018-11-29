@@ -16,6 +16,11 @@ public:
     Test(int n, string s) : num(n), str(s) {}
 };
 
+void test0() {
+    SlabAllocator<Test> test_sa;
+    SlabAllocator<Test> test_sa2{test_sa};
+}
+
 void test1() {
     SlabAllocator<Test> test_sa;
 
@@ -86,7 +91,8 @@ void test3() {
 
 int main(void)
 {
-    test1();
+    test0();
+    //test1();
     //test2();
     //test3();
     return 0;

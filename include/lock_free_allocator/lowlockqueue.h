@@ -58,7 +58,7 @@ public:
         producerLock = false;     // release exclusivity
     }
 
-    bool pop_front( Slab*& result, const int default_sz ) {
+    bool pop_front( Slab*& result, const size_t default_sz ) {
         while( consumerLock.exchange(true) ) 
         { }   // acquire exclusivity
         Node* theFirst = first;

@@ -46,9 +46,18 @@ struct SlabAllocator {
     }
 
     template <class U>
-    constexpr SlabAllocator(const SlabAllocator<U>& rhs)
+    SlabAllocator(const SlabAllocator<U>& rhs)
     {
-        throw std::runtime_error(__PRETTY_FUNCTION__);
+        //throw std::runtime_error(__PRETTY_FUNCTION__);
+        std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
+        mux_allocators = rhs.mux_allocators;
+        memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);
+    }
+
+    template <class U>
+    SlabAllocator<T>& operator=(const SlabAllocator<U>& rhs)
+    {
+        //throw std::runtime_error(__PRETTY_FUNCTION__);
         std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
         mux_allocators = rhs.mux_allocators;
         memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);

@@ -12,7 +12,7 @@ public:
 SlabAllocator<Test> alloc;
 
 void threadFn(int const ID, int const n) {
-    Test* arr[n];
+    vector<Test*> arr(n);
     for (int iter = 0; iter < n/100; ++iter) {
         for (int i = 0; i < 100; ++i) {
             Test *p = alloc.allocate(16);

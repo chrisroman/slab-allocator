@@ -9,9 +9,9 @@ static void escape(void *p) {
     asm volatile("" : : "g"(p) : "memory");
 }
 
-static void clobber() {
-    asm volatile("" : : : "memory");
-}
+//static void clobber() {
+//    asm volatile("" : : : "memory");
+//}
 
 Slab *init_slab = new Slab(16);
 lf_slist* lst;

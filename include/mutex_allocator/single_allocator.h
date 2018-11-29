@@ -38,22 +38,6 @@ struct SingleAllocator {
         all_slabs.emplace_back(free_slabs.front());
     }
 
-    /** POTENTIAL LOCK FREE IMPLEMENTATION using a lock-free queue
-     * Slab *slab;
-     * void *p;
-     * while (p == nullptr) {
-     *     slab = free_slabs.front();
-     *     p, new_num_free = slab->insert();
-     * }
-     *
-     * if (new_num_free == 0) {
-     *   free_slabs.pop_front();
-     *      // Should bake the invariant of always having at least one slab
-     *      // with open space in the queue INTO the lock-free queue itself
-     * }
-     *
-     * return p;
-     */
 
     [[nodiscard]]
     void* allocate()
@@ -80,7 +64,7 @@ struct SingleAllocator {
     void deallocate(void* p)
     {
         // Alignment for Slab::data
-        size_t alignment = sz * (Slab::MAX_SLOTS + 1);
+        size_t alignment = sz * 2 * (Slab::MAX_SLOTS + 1);
         // Offset (# of bytes) into Slab::data
         size_t offset = ((long long)p) % alignment;
         // The slot index for p
@@ -89,12 +73,6 @@ struct SingleAllocator {
         Slab *slab = *((Slab**) (((char*)p) - offset));
         
         int old_num_free = slab->erase(slot_num);
-
-        /**
-         * if (old_num_free == 0) {
-         *     free_slabs.push_back(slab);
-         * }
-         */
 
         // If the slab was full, add it to the free list since it now
         // has a free slot

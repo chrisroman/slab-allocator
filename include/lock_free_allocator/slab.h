@@ -35,10 +35,10 @@ struct Slab {
 
         size_t data_sz = sz * MAX_SLOTS + sizeof(void*);
 
-        posix_memalign((void**)&data, alignment, data_sz);
+        posix_memalign(reinterpret_cast<void**>(&data), alignment, data_sz);
         //data = static_cast<char*>(aligned_alloc(alignment, data_sz));
 
-        *((Slab**)data) = this;
+        *reinterpret_cast<Slab**>(data) = this;
     }
 
     std::pair<void*, int> insert() {
