@@ -65,7 +65,7 @@ public:
         Node* theNext = first-> next;
         if( theNext != nullptr ) {    // if queue is nonempty
             Slab* val = theNext->value;   // take it out
-            int new_num_free = val->num_free.fetch_sub(1) - 1;
+            int new_num_free = val->lock_slot();
             if (new_num_free != 0) {
                 consumerLock = false;
                 result = val;

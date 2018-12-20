@@ -11,6 +11,7 @@ struct SingleAllocator {
         // Queue for all the free slabs available
 
     size_t sz;
+        // Size of slots for all slabs created
 
     // used for debugging
     std::deque<Slab*> all_slabs;
@@ -21,7 +22,7 @@ struct SingleAllocator {
         for (Slab* slab : all_slabs) {
             std::cout << "\t----- Slab# " << slab_num << "-----\n"
                 << "\tnum_free = " << slab->num_free << '\n'
-                << "\tfree_slots = " << slab->free_slots << '\n'
+                << "\tfree_slots = " << std::bitset<64>(slab->free_slots) << '\n'
                 << "\t----------\n" << std::endl;
             ++slab_num;
         }
@@ -37,23 +38,6 @@ struct SingleAllocator {
         all_slabs.emplace_back(free_slabs.front());
     }
 
-    /** POTENTIAL LOCK FREE IMPLEMENTATION using a lock-free queue
-     * Slab *slab;
-     * void *p;
-     * while (p == nullptr) {
-     *     slab = free_slabs.front();
-     *     p, new_num_free = slab->insert();
-     * }
-     *
-     * if (new_num_free == 0) {
-     *   free_slabs.pop_front();
-     *      // Should bake the invariant of always having at least one slab
-     *      // with open space in the queue INTO the lock-free queue itself
-     * }
-     *
-     * return p;
-     */
-
     [[nodiscard]]
     void* allocate()
     {
@@ -64,25 +48,18 @@ struct SingleAllocator {
             success = free_slabs.pop_front(slab, sz);
         }
 
-        std::pair<void*, int> res = slab->insert();
+        void *p = slab->get_pointer();
 
-        return res.first;
+        return p;
     }
 
     void deallocate(void* p)
     {
-        // Alignment for Slab::data
-        size_t alignment = sz * 2 * (Slab::MAX_SLOTS + 1);
-
-        // Offset (# of bytes) into Slab::data
-        size_t offset = ((long long)p) % alignment;
-
-        // The slot index for p
-        int slot_num = (offset - sizeof(void*)) / sz;
-
-        Slab *slab = *((Slab**) (((char*)p) - offset));
-        
-        int old_num_free = slab->erase(slot_num);
+        Slab *slab;
+        int slot_num;
+        std::tie(slab, slot_num) = Slab::find_slab_info(p, sz);
+ 
+        int old_num_free = slab->release_slot(slot_num);
 
         // If the slab was full, add it to the free list since it now
         // has a free slot

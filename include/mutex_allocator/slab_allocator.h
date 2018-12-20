@@ -1,5 +1,4 @@
-#ifndef SLAB_ALLOCATOR_H
-#define SLAB_ALLOCATOR_H
+#pragma once
 
 #include "single_allocator.h"
 #include <memory>
@@ -29,15 +28,15 @@ struct SlabAllocator {
 
     SlabAllocator()
     {
-        std::cout << "Calling SlabAllocator() for " << (void*) this 
-            << ": " << __PRETTY_FUNCTION__ << std::endl;
+        //std::cout << "Calling SlabAllocator() for " << (void*) this 
+        //    << ": " << __PRETTY_FUNCTION__ << std::endl;
         mux_allocators = new std::mutex();
     }
 
     ~SlabAllocator()
     {
-        std::cout << "Calling ~SlabAllocator() on " << (void*) this
-            << ": " << __PRETTY_FUNCTION__ << std::endl;
+        //std::cout << "Calling ~SlabAllocator() on " << (void*) this
+        //    << ": " << __PRETTY_FUNCTION__ << std::endl;
         //for (int i = 0; i < MAX_ALLOCATORS; ++i) {
         //    if (allocators[i] != nullptr)
         //        delete allocators[i];
@@ -49,7 +48,7 @@ struct SlabAllocator {
     SlabAllocator(const SlabAllocator<U>& rhs)
     {
         //throw std::runtime_error(__PRETTY_FUNCTION__);
-        std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
+        //std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
         mux_allocators = rhs.mux_allocators;
         memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);
     }
@@ -58,14 +57,14 @@ struct SlabAllocator {
     SlabAllocator<T>& operator=(const SlabAllocator<U>& rhs)
     {
         //throw std::runtime_error(__PRETTY_FUNCTION__);
-        std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
+        //std::cout << "Calling SlabAllocator(const SlabAllocator<U>& rhs)" << std::endl;
         mux_allocators = rhs.mux_allocators;
         memcpy(allocators, rhs.allocators, sizeof(SingleAllocator*) * MAX_ALLOCATORS);
     }
 
     T* allocate(std::size_t n)
     {
-        std::cout << "Trying to allocate " << n * sizeof(T) << " bytes" << std::endl;
+        //std::cout << "Trying to allocate " << n * sizeof(T) << " bytes" << std::endl;
 
         // Find the nearest power of 2 >= (n*sizeof(T))
         size_t rounded_size = 1;
@@ -75,7 +74,7 @@ struct SlabAllocator {
             ++exponent;
         }
 
-        std::cout << "Rounded up to " << rounded_size << " bytes" << std::endl;
+        //std::cout << "Rounded up to " << rounded_size << " bytes" << std::endl;
 
         // If size of object to be allocated is larger than what we have
         // SingleAllocators for, just malloc it
@@ -85,7 +84,7 @@ struct SlabAllocator {
 
         // Create a new SingleAllocator the first time this particular
         // rounded_size is needed.
-        {
+        if (allocators[exponent] == nullptr) {
             std::lock_guard<std::mutex> lock(*mux_allocators);
             if (allocators[exponent] == nullptr) {
                 allocators[exponent] = new SingleAllocator(rounded_size);
@@ -131,5 +130,3 @@ bool operator!=(const SlabAllocator<T>& lhs, const SlabAllocator<U>& rhs)
     return false;
 }
 
-
-#endif /* ifndef SLAB_ALLOCATOR_H */

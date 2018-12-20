@@ -7,6 +7,10 @@
 #include <cmath>
 #include <thread>
 
+/**
+ * Internal state for a slab allocator.
+ * This is what will need to be copied when a slab allocator itself is copied.
+ */
 struct slab_allocator_internal {
     // Allows for slots of size 2 << MAX_ALLOCATORS
     static int const MAX_ALLOCATORS = 40;
@@ -19,6 +23,19 @@ struct slab_allocator_internal {
         }
     }
 };
+
+/**
+ * Compute ceil(log_2(n))
+ */
+int log2_int_ceil(int n) {
+    int rounded_size = 1;
+    int exponent = 0;
+    while (rounded_size < n) {
+        rounded_size <<= 1;
+        ++exponent;
+    }
+    return exponent;
+}
 
 template <typename T>
 struct SlabAllocator {
@@ -59,29 +76,23 @@ struct SlabAllocator {
     {
     }
 
+    [[nodiscard]]
     T* allocate(std::size_t n)
     {
-        // Find the nearest power of 2 >= (n*sizeof(T))
-        size_t rounded_size = 1;
-        int exponent = 0;
-        while (rounded_size < n * sizeof(T)) {
-            rounded_size <<= 1;
-            ++exponent;
-        }
+        int exponent = log2_int_ceil(n * sizeof(T));
 
         // Throw error if desired size to allocate is larger than supported
         if (exponent >= internal_state->MAX_ALLOCATORS) {
-            throw std::runtime_error("Cannot allocate objects this large.");
+            return (T*) malloc(n * sizeof(T));
         }
 
         // Create a new SingleAllocator the first time this particular
         // rounded_size is needed.
-        {
+        // TODO: Replace lock with atomic bool
+        if (internal_state->allocators[exponent] == nullptr) {
+            std::lock_guard<std::mutex> lock(internal_state->mux_allocators);
             if (internal_state->allocators[exponent] == nullptr) {
-                std::lock_guard<std::mutex> lock(internal_state->mux_allocators);
-                if (internal_state->allocators[exponent] == nullptr) {
-                    internal_state->allocators[exponent] = new SingleAllocator(rounded_size);
-                }
+                internal_state->allocators[exponent] = new SingleAllocator(2 << exponent);
             }
         }
 
@@ -94,16 +105,10 @@ struct SlabAllocator {
 
     void deallocate(T* p, std::size_t n) noexcept
     {
-        // Find the nearest power of 2 >= (n*sizeof(T))
-        size_t rounded_size = 1;
-        int exponent = 0;
-        while (rounded_size < n * sizeof(T)) {
-            rounded_size <<= 1;
-            ++exponent;
-        }
+        int exponent = log2_int_ceil(n * sizeof(T));
 
         if (exponent >= internal_state->MAX_ALLOCATORS) {
-            return;
+            free(p);
         } else {
             // Find the correct allocator for this size and use it do allocation
             SingleAllocator*& salloc = internal_state->allocators[exponent];

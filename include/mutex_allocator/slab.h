@@ -1,5 +1,4 @@
-#ifndef SLAB_H
-#define SLAB_H
+#pragma once
 
 #include <bitset>
 #include <cstdlib>
@@ -75,5 +74,3 @@ struct Slab {
     }
 
 };
-
-#endif /* ifndef SLAB_H */

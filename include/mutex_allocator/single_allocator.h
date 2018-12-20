@@ -1,5 +1,4 @@
-#ifndef SINGLE_ALLOCATOR_H
-#define SINGLE_ALLOCATOR_H
+#pragma once
 
 #include "slab.h"
 #include <deque>
@@ -89,5 +88,3 @@ struct SingleAllocator {
     }
 
 };
-
-#endif /* ifndef SINGLE_ALLOCATOR_H */

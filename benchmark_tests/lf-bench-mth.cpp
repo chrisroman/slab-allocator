@@ -127,8 +127,8 @@ void locked_inc(benchmark::State &state) {
 
 
 //BENCHMARK(slab_allocator_create)->RangeMultiplier(2)->ThreadRange(1, 128);
-BENCHMARK(slab_allocator_alloc)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
-BENCHMARK(slab_allocator_allocate_deallocate)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
+BENCHMARK(slab_allocator_alloc)->RangeMultiplier(2)->ThreadRange(1, 1024)->UseRealTime();
+//BENCHMARK(slab_allocator_allocate_deallocate)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
 //BENCHMARK(baseline)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
 //BENCHMARK(atomic_inc)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
 //BENCHMARK(locked_inc)->RangeMultiplier(2)->ThreadRange(1, 128)->UseRealTime();
