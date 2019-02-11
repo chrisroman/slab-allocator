@@ -43,9 +43,9 @@ struct SingleAllocator {
     {
         Slab *slab;
 
-        bool success = free_slabs.pop_front(slab, sz);
+        bool success = free_slabs.pop_front(slab, sz, all_slabs);
         while (!success) {
-            success = free_slabs.pop_front(slab, sz);
+          success = free_slabs.pop_front(slab, sz, all_slabs);
         }
 
         void *p = slab->get_pointer();

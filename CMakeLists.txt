@@ -44,3 +44,5 @@ enable_testing()
 #add_executable(lf-stack "./tests/lf-stack.cpp")
 #
 #add_executable(pseudo-serialization "./tests/pseudo-serialization.cpp")
+
+add_executable(containers "./tests/containers.cpp")

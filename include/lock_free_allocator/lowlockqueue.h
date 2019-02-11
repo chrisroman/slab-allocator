@@ -1,4 +1,5 @@
 #include <atomic>
+#include <deque>
 #include "slab.h"
 
 constexpr int CACHE_LINE_SIZE = 64;
@@ -6,107 +7,108 @@ constexpr int CACHE_LINE_SIZE = 64;
 // Adapted from https://www.drdobbs.com/parallel/writing-a-generalized-concurrent-queue/211601363
 struct LowLockQueue {
 private:
-    struct Node {
-        Node( Slab* val ) : value(val), next(nullptr) { }
-        Slab* value;
-        std::atomic<Node*> next;
-        char pad[CACHE_LINE_SIZE - sizeof(Slab*)- sizeof(std::atomic<Node*>)];
-    };
-    char pad0[CACHE_LINE_SIZE];
+  struct Node {
+  Node( Slab* val ) : value(val), next(nullptr) { }
+    Slab* value;
+    std::atomic<Node*> next;
+    char pad[CACHE_LINE_SIZE - sizeof(Slab*)- sizeof(std::atomic<Node*>)];
+  };
+  char pad0[CACHE_LINE_SIZE];
 
-    // for one consumer at a time
-    Node* first;
+  // for one consumer at a time
+  Node* first;
 
-    char pad1[CACHE_LINE_SIZE - sizeof(Node*)];
+  char pad1[CACHE_LINE_SIZE - sizeof(Node*)];
 
-    // shared among consumers
-    std::atomic<bool> consumerLock;
+  // shared among consumers
+  std::atomic<bool> consumerLock;
 
-    char pad2[CACHE_LINE_SIZE - sizeof(std::atomic<bool>)];
+  char pad2[CACHE_LINE_SIZE - sizeof(std::atomic<bool>)];
 
-    // for one producer at a time
-    Node* last; 
+  // for one producer at a time
+  Node* last; 
 
-    char pad3[CACHE_LINE_SIZE - sizeof(Node*)];
+  char pad3[CACHE_LINE_SIZE - sizeof(Node*)];
 
-    // shared among producers
-    std::atomic<bool> producerLock;
+  // shared among producers
+  std::atomic<bool> producerLock;
 
-    char pad4[CACHE_LINE_SIZE - sizeof(std::atomic<bool>)];
+  char pad4[CACHE_LINE_SIZE - sizeof(std::atomic<bool>)];
 
 public:
-    LowLockQueue() {
-        first = last = new Node( nullptr );
-        producerLock = consumerLock = false;
-    }
+  LowLockQueue() {
+    first = last = new Node( nullptr );
+    producerLock = consumerLock = false;
+  }
 
-    ~LowLockQueue() {
-        while( first != nullptr ) {      // release the list
-            Node* tmp = first;
-            first = tmp->next;
-            delete tmp->value;       // no-op if null
-            delete tmp;
-        }
+  ~LowLockQueue() {
+    while( first != nullptr ) {      // release the list
+      Node* tmp = first;
+      first = tmp->next;
+      delete tmp->value;       // no-op if null
+      delete tmp;
     }
+  }
 
-    void push_back( Slab *slab ) {
-        Node* tmp = new Node( slab );
-        while( producerLock.exchange(true) )
-        { }   // acquire exclusivity
+  void push_back( Slab *slab ) {
+    Node* tmp = new Node( slab );
+    while( producerLock.exchange(true) )
+      { }   // acquire exclusivity
+    last->next = tmp;     // publish to consumers
+    last = tmp;         // swing last forward
+    producerLock = false;     // release exclusivity
+  }
+
+  bool pop_front( Slab*& result, const size_t default_sz, std::deque<Slab*>& all_slabs ) {
+    while( consumerLock.exchange(true) )
+      { }   // acquire exclusivity
+    Node* theFirst = first;
+    Node* theNext = first-> next;
+    if( theNext != nullptr ) {    // if queue is nonempty
+      Slab* val = theNext->value;   // take it out
+      int new_num_free = val->lock_slot();
+      if (new_num_free != 0) {
+        consumerLock = false;
+        result = val;
+        return true;
+      } else {
+        theNext->value = nullptr;  // of the Node
+        first = theNext;       // swing first forward
+        consumerLock = false;            // release exclusivity
+        result = val;    // now copy it back
+        //delete val;      // clean up the value
+        delete theFirst;    // and the old dummy
+        return true;     // and report success
+      }
+    } else {
+      if (!producerLock.exchange(true)) {
+        Slab *s = new Slab(default_sz);
+        all_slabs.push_back(s);
+        Node* tmp = new Node(s);
+        tmp->value->num_free.fetch_sub(1);
+
         last->next = tmp;     // publish to consumers
         last = tmp;         // swing last forward
-        producerLock = false;     // release exclusivity
+        producerLock = false;    // release exclusivity
+
+        consumerLock = false;   // release exclusivity
+        result = s;
+        return true;
+      } else {
+        consumerLock = false;   // release exclusivity
+        return false;           // report queue was empty
+      }
     }
+  }
 
-    bool pop_front( Slab*& result, const size_t default_sz ) {
-        while( consumerLock.exchange(true) ) 
-        { }   // acquire exclusivity
-        Node* theFirst = first;
-        Node* theNext = first-> next;
-        if( theNext != nullptr ) {    // if queue is nonempty
-            Slab* val = theNext->value;   // take it out
-            int new_num_free = val->lock_slot();
-            if (new_num_free != 0) {
-                consumerLock = false;
-                result = val;
-                return true;
-            } else {
-                theNext->value = nullptr;  // of the Node
-                first = theNext;       // swing first forward
-                consumerLock = false;            // release exclusivity
-                result = val;    // now copy it back
-                //delete val;      // clean up the value
-                delete theFirst;    // and the old dummy
-                return true;     // and report success
-            }
-        } else {
-            if (!producerLock.exchange(true)) {
-                Slab *s = new Slab(default_sz);
-                Node* tmp = new Node(s);
-                tmp->value->num_free.fetch_sub(1);
+  Slab* front() {
+    Node *start = first->next.load();
+    return (start != nullptr ? start->value : nullptr);
+  }
 
-                last->next = tmp;     // publish to consumers
-                last = tmp;         // swing last forward
-                producerLock = false;    // release exclusivity
-
-                consumerLock = false;   // release exclusivity
-                result = s;
-                return true;
-            } else {
-                consumerLock = false;   // release exclusivity
-                return false;           // report queue was empty
-            }
-        }
-    }
-
-    Slab* front() {
-        Node *start = first->next.load();
-        return (start != nullptr ? start->value : nullptr);
-    }
-
-    bool empty() {
-        return (first->next.load() == nullptr);
-    }
+  bool empty() {
+    return (first->next.load() == nullptr);
+  }
 };
 
 // Adapted from https://www.drdobbs.com/parallel/writing-a-generalized-concurrent-queue/211601363
